@@ -23,40 +23,61 @@ compressão em `ler_linhas`.
 
 ## O que ele grava
 
-Cada coleta que **muda** o conteúdo cria uma pasta `dados/<data-hora-UTC>/` com:
+Cada coleta que **muda** o conteúdo grava:
 
-| Arquivo | Conteúdo |
+| Caminho | Conteúdo |
 |---|---|
-| `painel_servicos.csv` | um serviço por linha, 19 campos, mais a fonte e as datas |
+| `painel_servicos.csv` | um serviço por linha, 19 campos, mais a fonte e as datas — Brasil inteiro |
 | `painel_bruto.json` | as mesmas linhas sem formatação, com metadados do modelo |
+| `uf/<SIGLA>/…` | os mesmos dois arquivos, recortados para um estado (só com `--uf`) |
+
+O arquivo nacional é sempre gravado. O recorte por estado é adicional, para quem acompanha uma
+região específica sem perder o retrato do país.
 
 Quando nada muda, nada é gravado: o script compara um `sha256` das linhas com o valor em
-`dados/ultima_impressao.txt` e apenas registra "sem mudança" no log. Isso importa porque o painel
-é atualizado de forma esporádica — entre 12/08/2026 e 19/09/2026 os dados não mudaram uma vez.
+`ultima_impressao.txt` e apenas registra "sem mudança" no log. Isso importa porque o painel é
+atualizado de forma esporádica — entre 12/08/2026 e 19/09/2026 os dados não mudaram uma vez.
 
-As versões mais antigas são apagadas, mantendo apenas as `PAINEL180_MANTER` mais recentes.
+Sem `--repo`, cada mudança vira uma pasta com data e as mais antigas são apagadas, mantendo as
+`--manter` mais recentes.
 
 ### Modo repositório
 
-Com `PAINEL180_REPO` apontando para um clone deste repositório, o script grava os dois arquivos
-direto em `dados/` — sempre com o mesmo nome — e faz commit e push a cada mudança. O histórico do
-Git passa a ser o histórico do painel: cada commit é uma mudança real, e o diff mostra quais
-serviços entraram, saíram ou tiveram dados corrigidos. Nesse modo não há rotação de pastas, e o
-número de versões guardadas deixa de ser limitado.
+Com `--repo` apontando para um clone de um repositório Git, o script grava sempre nos mesmos
+caminhos dentro de `dados/` e faz commit e push a cada mudança. O histórico do Git passa a ser o
+histórico do painel: cada commit é uma mudança real, e o diff mostra quais serviços entraram,
+saíram ou tiveram dados corrigidos. Nesse modo não há rotação, e o número de versões é ilimitado.
 
-Na VM o acesso é feito por uma chave de implantação com escrita restrita a este repositório.
+Numa máquina sem supervisão, use uma chave de implantação com escrita restrita ao repositório, em
+vez de uma credencial da sua conta inteira.
 
 ## Configuração
 
-| Variável | Padrão | Função |
-|---|---|---|
-| `PAINEL180_DIR` | `~/painel180/dados` | onde gravar |
-| `PAINEL180_MANTER` | `5` | quantas versões manter |
-| `PAINEL180_UF` | `RJ` | sigla do estado a guardar; vazio guarda o Brasil inteiro |
-| `PAINEL180_REPO` | vazio | caminho de um clone deste repositório; ativa o commit automático |
+Todas as opções têm uma variável de ambiente equivalente, o que facilita usar com systemd:
 
-O script busca sempre o país inteiro e filtra depois, então o JSON registra quantos serviços
-existiam no Brasil naquele momento, mesmo guardando só um estado.
+| Opção | Variável | Padrão | Função |
+|---|---|---|---|
+| `--uf` | `PAINEL180_UF` | vazio | recorte extra de um estado (ex.: `RJ`) |
+| `--dir` | `PAINEL180_DIR` | `~/painel180/dados` | onde gravar |
+| `--repo` | `PAINEL180_REPO` | vazio | clone Git onde gravar e comitar |
+| `--manter` | `PAINEL180_MANTER` | `5` | versões mantidas quando não se usa `--repo` |
+| `--minimo` | `PAINEL180_MINIMO` | `100` | mínimo de linhas aceitável |
+| `--resource-key` | `PAINEL180_RESOURCE_KEY` | o do painel | identificador do relatório Power BI |
+| `--api` | `PAINEL180_API` | Brasil Sul | endereço da API, que varia com a região |
+| `--timeout` | `PAINEL180_TIMEOUT` | `60` | tempo limite por requisição, em segundos |
+
+E três chaves sem variável: `--simular` coleta e mostra o resumo sem gravar, `--forcar` grava
+mesmo sem mudança, e `--silencioso` imprime apenas erros.
+
+```bash
+python3 coleta_painel180.py --simular            # ver o que viria, sem gravar
+python3 coleta_painel180.py --uf BA              # Brasil, com recorte da Bahia
+python3 coleta_painel180.py --repo ~/meu-clone   # commit automático a cada mudança
+```
+
+Como `--resource-key` e `--api` são configuráveis, o script serve para qualquer relatório Power BI
+público de estrutura parecida, bastando ajustar `CAMPOS` com as entidades e propriedades do outro
+modelo.
 
 ## Salvaguardas
 
@@ -95,5 +116,5 @@ journalctl -u painel180.service -n 20
 ## Origem
 
 Os dados equivalentes foram levantados pela primeira vez em 24/08/2026, de forma manual, apenas
-para o Rio de Janeiro (180 serviços). Este script reproduz exatamente aquele resultado e amplia o
-alcance: busca os 2.641 serviços do país e filtra o estado desejado.
+para o Rio de Janeiro (180 serviços). Este script reproduz exatamente aquele resultado — as 180
+linhas conferem campo a campo — e amplia o alcance para os 2.641 serviços do país.
