@@ -36,6 +36,16 @@ Quando nada muda, nada é gravado: o script compara um `sha256` das linhas com o
 
 As versões mais antigas são apagadas, mantendo apenas as `PAINEL180_MANTER` mais recentes.
 
+### Modo repositório
+
+Com `PAINEL180_REPO` apontando para um clone deste repositório, o script grava os dois arquivos
+direto em `dados/` — sempre com o mesmo nome — e faz commit e push a cada mudança. O histórico do
+Git passa a ser o histórico do painel: cada commit é uma mudança real, e o diff mostra quais
+serviços entraram, saíram ou tiveram dados corrigidos. Nesse modo não há rotação de pastas, e o
+número de versões guardadas deixa de ser limitado.
+
+Na VM o acesso é feito por uma chave de implantação com escrita restrita a este repositório.
+
 ## Configuração
 
 | Variável | Padrão | Função |
@@ -43,6 +53,7 @@ As versões mais antigas são apagadas, mantendo apenas as `PAINEL180_MANTER` ma
 | `PAINEL180_DIR` | `~/painel180/dados` | onde gravar |
 | `PAINEL180_MANTER` | `5` | quantas versões manter |
 | `PAINEL180_UF` | `RJ` | sigla do estado a guardar; vazio guarda o Brasil inteiro |
+| `PAINEL180_REPO` | vazio | caminho de um clone deste repositório; ativa o commit automático |
 
 O script busca sempre o país inteiro e filtra depois, então o JSON registra quantos serviços
 existiam no Brasil naquele momento, mesmo guardando só um estado.

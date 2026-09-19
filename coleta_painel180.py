@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import urllib.request
 import uuid
@@ -23,6 +24,7 @@ VISUAL_ID = 230683235
 DESTINO = Path(os.environ.get("PAINEL180_DIR", Path.home() / "painel180" / "dados"))
 MANTER = int(os.environ.get("PAINEL180_MANTER", "5"))
 UF_ALVO = os.environ.get("PAINEL180_UF", "RJ").strip().upper()  # vazio = Brasil inteiro
+REPO = os.environ.get("PAINEL180_REPO", "").strip()  # clone do repositorio; ativa commit automatico
 TIMEOUT = 60
 
 COLUNAS_CSV = {
@@ -187,6 +189,25 @@ def gravar(destino: Path, colunas: list[str], linhas: list[list], modelo_info: d
             )
 
 
+def publicar_no_git(repo: Path, resumo: str) -> str:
+    """Comita e envia os dados. O historico do Git substitui a rotacao de pastas."""
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=120
+        )
+
+    git("add", "dados")
+    if not git("status", "--porcelain", "dados").stdout.strip():
+        return "sem alteracao para comitar"
+    feito = git("commit", "-m", resumo)
+    if feito.returncode != 0:
+        return f"falha no commit: {feito.stderr.strip()[:200]}"
+    enviado = git("push")
+    if enviado.returncode != 0:
+        return f"commit feito, push falhou: {enviado.stderr.strip()[:200]}"
+    return "commit e push ok"
+
+
 def podar(base: Path, manter: int) -> list[str]:
     versoes = sorted((p for p in base.iterdir() if p.is_dir()), reverse=True)
     removidas = []
@@ -242,6 +263,19 @@ def main() -> int:
     agora = datetime.now().strftime("%Y-%m-%d %H:%M")
     if marca.exists() and marca.read_text().strip() == impressao:
         print(f"[{agora}] sem mudanca ({len(linhas)} servicos em {UF_ALVO or 'BR'}, {total_brasil} no Brasil)")
+        return 0
+
+    if REPO:
+        destino = Path(REPO) / "dados"
+        gravar(destino, colunas, linhas, info)
+        marca.write_text(impressao)
+        resumo = (
+            f"Painel {UF_ALVO or 'BR'}: {len(linhas)} servicos"
+            f" (modelo atualizado em {(info.get('lastRefresh') or '?')[:10]})"
+        )
+        estado = publicar_no_git(Path(REPO), resumo)
+        print(f"[{agora}] MUDOU: {len(linhas)} servicos em {UF_ALVO or 'BR'}"
+              f" (de {total_brasil} no Brasil) | {estado}")
         return 0
 
     destino = base / datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
