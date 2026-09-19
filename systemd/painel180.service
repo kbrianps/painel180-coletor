@@ -1,9 +1,0 @@
-[Unit]
-Description=Coleta do Painel da Rede de Atendimento (Ligue 180)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-User=ubuntu
-ExecStart=/usr/bin/python3 /home/ubuntu/painel180/coleta_painel180.py

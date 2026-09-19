@@ -1,120 +1,124 @@
-# Coletor do Painel da Rede de Atendimento (Ligue 180)
+# Ligue 180 panel collector
 
-Coleta periodicamente os serviços da rede de atendimento à mulher publicados no
+Periodically collects the women's assistance services published on Brazil's
 [Painel da Rede de Atendimento](https://www.gov.br/mulheres/pt-br/ligue180/painel-da-rede-de-atendimento)
-do Ministério das Mulheres, e guarda um histórico das versões que mudaram.
+(Ministry of Women) and keeps a history of every version that actually changed.
 
-## Como os dados são obtidos
+Python 3 only — no third-party dependencies.
 
-O painel é um relatório **Power BI** público embutido na página do gov.br. Não há raspagem de
-HTML: o script conversa com a API pública do Power BI em dois passos.
+## How the data is obtained
 
-1. `GET .../modelsAndExploration` devolve o modelo de dados do relatório (dataset, modelo e data
-   da última atualização).
-2. `POST .../querydata` executa uma consulta semântica sobre esse modelo e devolve as linhas.
+The panel is a public **Power BI** report embedded in the gov.br page. There is no HTML scraping:
+the script talks to the public Power BI API in two steps.
 
-A consulta é **montada pelo script** sobre as entidades `dEndereço` e `dServico`, em vez de copiar
-a consulta de algum gráfico do painel. Gráficos somem ou mudam de identificador quando o painel é
-redesenhado; os campos do modelo são estáveis.
+1. `GET .../modelsAndExploration` returns the report's data model (dataset, model id and the date
+   of the last refresh).
+2. `POST .../querydata` runs a semantic query against that model and returns the rows.
 
-A resposta vem comprimida: valores repetidos viram uma máscara de bits (`R`), nulos viram outra
-(`Ø`) e textos viram índices para dicionários por coluna (`ValueDicts`). O script desfaz essa
-compressão em `ler_linhas`.
+The query is **built by the script** over the `dEndereço` and `dServico` entities rather than
+copied from one of the panel's visuals. Visuals disappear or change identifiers whenever the
+dashboard is redesigned; model fields are stable. The visual used by an earlier manual extraction
+no longer exists.
 
-## O que ele grava
+Responses arrive compressed: repeated values become a bitmask (`R`), nulls another one (`Ø`), and
+text values become indices into per-column dictionaries (`ValueDicts`). `parse_rows` undoes that.
 
-Cada coleta que **muda** o conteúdo grava:
+## What it writes
 
-| Caminho | Conteúdo |
+Every collection that **changes** the content writes:
+
+| Path | Content |
 |---|---|
-| `painel_servicos.csv` | um serviço por linha, 19 campos, mais a fonte e as datas — Brasil inteiro |
-| `painel_bruto.json` | as mesmas linhas sem formatação, com metadados do modelo |
-| `uf/<SIGLA>/…` | os mesmos dois arquivos, recortados para um estado (só com `--uf`) |
+| `panel_services.csv` | one service per row, 19 fields, plus source URL and dates — nationwide |
+| `panel_services.json` | the same rows unformatted, with the model's metadata |
+| `states/<CODE>/…` | the same two files restricted to one state (only with `--state`) |
 
-O arquivo nacional é sempre gravado. O recorte por estado é adicional, para quem acompanha uma
-região específica sem perder o retrato do país.
+The nationwide file is always written. The state slice is additional, for whoever follows one
+region without losing the national picture.
 
-Quando nada muda, nada é gravado: o script compara um `sha256` das linhas com o valor em
-`ultima_impressao.txt` e apenas registra "sem mudança" no log. Isso importa porque o painel é
-atualizado de forma esporádica — entre 12/08/2026 e 19/09/2026 os dados não mudaram uma vez.
+When nothing changes, nothing is written: the script compares a `sha256` of the rows against
+`last_fingerprint.txt` and just logs `unchanged`. This matters because the panel is refreshed
+sporadically — between 2026-08-12 and 2026-09-19 the data did not change once.
 
-Sem `--repo`, cada mudança vira uma pasta com data e as mais antigas são apagadas, mantendo as
-`--manter` mais recentes.
+Without `--repo`, each change becomes a timestamped folder and the oldest ones are deleted,
+keeping the `--keep` most recent.
 
-### Modo repositório
+### Repository mode
 
-Com `--repo` apontando para um clone de um repositório Git, o script grava sempre nos mesmos
-caminhos dentro de `dados/` e faz commit e push a cada mudança. O histórico do Git passa a ser o
-histórico do painel: cada commit é uma mudança real, e o diff mostra quais serviços entraram,
-saíram ou tiveram dados corrigidos. Nesse modo não há rotação, e o número de versões é ilimitado.
+With `--repo` pointing at a Git clone, the script always writes to the same paths under `data/`
+and commits and pushes on every change. Git history becomes the panel's history: each commit is a
+real change, and the diff shows which services were added, removed or corrected. In this mode
+there is no rotation and the number of versions is unlimited.
 
-Numa máquina sem supervisão, use uma chave de implantação com escrita restrita ao repositório, em
-vez de uma credencial da sua conta inteira.
+On an unattended machine, use a deploy key scoped to that single repository rather than a
+credential covering your whole account.
 
-## Configuração
+## Configuration
 
-Todas as opções têm uma variável de ambiente equivalente, o que facilita usar com systemd:
+Every option has an environment variable counterpart, which is convenient with systemd:
 
-| Opção | Variável | Padrão | Função |
+| Option | Variable | Default | Purpose |
 |---|---|---|---|
-| `--uf` | `PAINEL180_UF` | vazio | recorte extra de um estado (ex.: `RJ`) |
-| `--dir` | `PAINEL180_DIR` | `~/painel180/dados` | onde gravar |
-| `--repo` | `PAINEL180_REPO` | vazio | clone Git onde gravar e comitar |
-| `--manter` | `PAINEL180_MANTER` | `5` | versões mantidas quando não se usa `--repo` |
-| `--minimo` | `PAINEL180_MINIMO` | `100` | mínimo de linhas aceitável |
-| `--resource-key` | `PAINEL180_RESOURCE_KEY` | o do painel | identificador do relatório Power BI |
-| `--api` | `PAINEL180_API` | Brasil Sul | endereço da API, que varia com a região |
-| `--timeout` | `PAINEL180_TIMEOUT` | `60` | tempo limite por requisição, em segundos |
+| `--state` | `PANEL180_STATE` | empty | extra slice for one state (e.g. `RJ`) |
+| `--dir` | `PANEL180_DIR` | `~/panel180/data` | where to write |
+| `--repo` | `PANEL180_REPO` | empty | Git clone to write into and commit |
+| `--keep` | `PANEL180_KEEP` | `5` | versions kept when `--repo` is not used |
+| `--minimum` | `PANEL180_MINIMUM` | `100` | minimum acceptable row count |
+| `--resource-key` | `PANEL180_RESOURCE_KEY` | the panel's | Power BI report identifier |
+| `--api` | `PANEL180_API` | Brazil South | API endpoint, which varies by region |
+| `--timeout` | `PANEL180_TIMEOUT` | `60` | per-request timeout, in seconds |
 
-E três chaves sem variável: `--simular` coleta e mostra o resumo sem gravar, `--forcar` grava
-mesmo sem mudança, e `--silencioso` imprime apenas erros.
+Three flags have no variable: `--dry-run` collects and prints a summary without writing, `--force`
+writes even without changes, and `--quiet` prints errors only.
 
 ```bash
-python3 coleta_painel180.py --simular            # ver o que viria, sem gravar
-python3 coleta_painel180.py --uf BA              # Brasil, com recorte da Bahia
-python3 coleta_painel180.py --repo ~/meu-clone   # commit automático a cada mudança
+python3 collect_panel180.py --dry-run           # see what would come back
+python3 collect_panel180.py --state BA          # nationwide, plus a Bahia slice
+python3 collect_panel180.py --repo ~/my-clone   # automatic commit on every change
 ```
 
-Como `--resource-key` e `--api` são configuráveis, o script serve para qualquer relatório Power BI
-público de estrutura parecida, bastando ajustar `CAMPOS` com as entidades e propriedades do outro
-modelo.
+Because `--resource-key` and `--api` are configurable, the script also works against other public
+Power BI reports of similar shape: adjust `FIELDS` with the entities and properties of that model.
 
-## Salvaguardas
+CSV column names stay in Portuguese because they mirror the source dataset, whose values are
+Brazilian addresses and service names.
 
-O script se recusa a gravar, e sai com erro, se:
+## Safeguards
 
-- vierem menos de 100 serviços no total do Brasil (indica mudança ou falha na API);
-- a coluna de UF desaparecer da resposta;
-- o estado escolhido ficar sem nenhum serviço.
+The script refuses to write, and exits non-zero, when:
 
-Em qualquer um desses casos os dados já coletados permanecem intactos.
+- fewer than `--minimum` services come back nationwide (suggests an API change or a failure);
+- the state column disappears from the response;
+- the chosen state ends up with no services;
+- the network request fails or times out.
 
-## Instalação
+In all of those cases the data already collected stays untouched.
+
+## Installation
 
 ```bash
-mkdir -p ~/painel180 && cp coleta_painel180.py ~/painel180/
-sudo cp systemd/painel180.service systemd/painel180.timer /etc/systemd/system/
+mkdir -p ~/panel180 && cp collect_panel180.py ~/panel180/
+sudo cp systemd/panel180.service systemd/panel180.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now painel180.timer
+sudo systemctl enable --now panel180.timer
 ```
 
-Só precisa de Python 3 — nenhuma biblioteca externa.
-
-Para rodar uma vez, à mão:
+Adjust the `Environment=` lines in `panel180.service` to choose the state, the destination or the
+repository. To run once, by hand:
 
 ```bash
-python3 ~/painel180/coleta_painel180.py
+python3 ~/panel180/collect_panel180.py
 ```
 
-Para acompanhar:
+To follow along:
 
 ```bash
-systemctl list-timers painel180.timer
-journalctl -u painel180.service -n 20
+systemctl list-timers panel180.timer
+journalctl -u panel180.service -n 20
 ```
 
-## Origem
+## Origin
 
-Os dados equivalentes foram levantados pela primeira vez em 24/08/2026, de forma manual, apenas
-para o Rio de Janeiro (180 serviços). Este script reproduz exatamente aquele resultado — as 180
-linhas conferem campo a campo — e amplia o alcance para os 2.641 serviços do país.
+The equivalent data was first extracted by hand on 2026-08-24, for Rio de Janeiro only (180
+services). This script reproduces that result exactly — the 180 rows match field by field — and
+widens the scope to the 2,641 services across the country.

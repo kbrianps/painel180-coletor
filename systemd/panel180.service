@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect the Painel da Rede de Atendimento (Ligue 180)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+# Optional: pick a state slice, a destination, or a Git clone to commit into.
+# Environment=PANEL180_STATE=RJ
+# Environment=PANEL180_REPO=/home/ubuntu/painel180-coletor
+ExecStart=/usr/bin/python3 /home/ubuntu/panel180/collect_panel180.py

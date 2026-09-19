@@ -1,5 +1,5 @@
 [Unit]
-Description=Coleta o Painel do Ligue 180 de hora em hora
+Description=Collect the Ligue 180 panel hourly
 
 [Timer]
 OnBootSec=5min
