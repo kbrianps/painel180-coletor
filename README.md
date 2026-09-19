@@ -122,3 +122,9 @@ journalctl -u panel180.service -n 20
 The equivalent data was first extracted by hand on 2026-08-24, for Rio de Janeiro only (180
 services). This script reproduces that result exactly — the 180 rows match field by field — and
 widens the scope to the 2,641 services across the country.
+
+## License
+
+[CC0 1.0](LICENSE) — public domain dedication. The underlying data is already public, published
+by a federal government agency; this waives any claim over the code and the collected snapshots
+too, so anyone can reuse either without asking.
