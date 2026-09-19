@@ -1,0 +1,11 @@
+[Unit]
+Description=Coleta o Painel do Ligue 180 de hora em hora
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
