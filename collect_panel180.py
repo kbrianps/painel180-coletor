@@ -285,21 +285,42 @@ def filter_state(columns: list[str], rows: list[list], state: str) -> list[list]
     return [row for row in rows if str(row[index] or "").strip().upper() == state]
 
 
-def publish_to_git(repo: Path, message: str) -> str:
-    def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", "-C", str(repo), *args],
-                              capture_output=True, text=True, timeout=120)
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(repo), *args],
+                          capture_output=True, text=True, timeout=120)
 
-    git("add", "data")
-    if not git("status", "--porcelain", "data").stdout.strip():
+
+def unpushed_commits(repo: Path) -> int:
+    """Commits the clone has and its upstream does not, as of the last fetch (no network)."""
+    counted = _git(repo, "rev-list", "--count", "@{upstream}..HEAD")
+    return int(counted.stdout.strip() or 0) if counted.returncode == 0 else 0
+
+
+def push_to_git(repo: Path) -> str:
+    """Push, rebasing onto the remote first.
+
+    The remote can move without this machine (a README fix pushed from somewhere else), and a
+    plain push is then rejected. Rebasing first makes that a non-event: commits made here only
+    touch data/, so there is nothing for an outside change to conflict with.
+    """
+    pulled = _git(repo, "pull", "--rebase")
+    if pulled.returncode != 0:
+        _git(repo, "rebase", "--abort")
+        return f"pull failed: {(pulled.stderr or pulled.stdout).strip()[:200]}"
+    pushed = _git(repo, "push")
+    if pushed.returncode != 0:
+        return f"push failed: {pushed.stderr.strip()[:200]}"
+    return "pushed"
+
+
+def publish_to_git(repo: Path, message: str) -> str:
+    _git(repo, "add", "data")
+    if not _git(repo, "status", "--porcelain", "data").stdout.strip():
         return "nothing to commit"
-    committed = git("commit", "-m", message)
+    committed = _git(repo, "commit", "-m", message)
     if committed.returncode != 0:
         return f"commit failed: {committed.stderr.strip()[:200]}"
-    pushed = git("push")
-    if pushed.returncode != 0:
-        return f"committed, push failed: {pushed.stderr.strip()[:200]}"
-    return "committed and pushed"
+    return f"committed, {push_to_git(repo)}"
 
 
 def prune(base: Path, keep: int) -> list[str]:
@@ -355,7 +376,14 @@ def main(argv: list[str] | None = None) -> int:
     stamp = base / "last_fingerprint.txt"
 
     if not options.force and stamp.exists() and stamp.read_text().strip() == fingerprint:
-        say(f"[{timestamp}] unchanged ({summary})")
+        # A push that failed is not retried by a later change alone: the fingerprint already
+        # matches, so without this the commit would sit here until the panel changed again.
+        pending = unpushed_commits(Path(options.repo)) if options.repo else 0
+        if pending:
+            status = push_to_git(Path(options.repo))
+            say(f"[{timestamp}] unchanged ({summary}) | {pending} unpushed commit(s): {status}")
+        else:
+            say(f"[{timestamp}] unchanged ({summary})")
         return 0
 
     target = base if options.repo else options.directory / datetime.now(

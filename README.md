@@ -50,6 +50,10 @@ and commits and pushes on every change. Git history becomes the panel's history:
 real change, and the diff shows which services were added, removed or corrected. In this mode
 there is no rotation and the number of versions is unlimited.
 
+Before pushing, the script rebases onto the remote, so a commit pushed from elsewhere (a README
+fix, say) does not get its push rejected. A push that fails anyway is retried on every later run,
+changed or not, until it goes through.
+
 On an unattended machine, use a deploy key scoped to that single repository rather than a
 credential covering your whole account.
 
