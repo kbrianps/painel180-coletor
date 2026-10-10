@@ -29,7 +29,7 @@ Every collection that **changes** the content writes:
 
 | Path | Content |
 |---|---|
-| `panel_services.csv` | one service per row, 19 fields, plus source URL and dates — nationwide |
+| `panel_services.csv` | one service per row, 20 fields (the last one, `Servico_Id`, is the service's stable key in the source), plus source URL and dates — nationwide |
 | `panel_services.json` | the same rows unformatted, with the model's metadata |
 | `states/<CODE>/…` | the same two files restricted to one state (only with `--state`) |
 

@@ -42,8 +42,10 @@ FIELDS = [
     ("d", "dEndereço", ["UF", "Municipio", "Municipio + UF", "Estado", "Unidade Federativa",
                         "Regiao", "CEP", "Endereco", "Bairro", "Combinação Endereço",
                         "Latitude", "Longitude"]),
+    # Id is the service's own key in the source: it survives a renaming, and without it two
+    # services that are identical in every other field come back merged into one row.
     ("s", "dServico", ["Tipo Serviço", "Nome do Serviço", "Telefone", "OutroTelefone",
-                       "Email", "Site", "RedeSocial"]),
+                       "Email", "Site", "RedeSocial", "Id"]),
 ]
 
 # CSV column names. They mirror the source dataset, so they stay in Portuguese:
@@ -68,6 +70,7 @@ CSV_HEADERS = {
     "dServico.Email": "Email",
     "dServico.Site": "Site",
     "dServico.RedeSocial": "Rede_Social",
+    "dServico.Id": "Servico_Id",
 }
 
 STATE_COLUMN = "dEndereço.UF"
