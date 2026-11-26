@@ -3,10 +3,10 @@
   "reportName": "Painel da Rede de Atendimento à Mulher",
   "datasetId": "92018c52-7485-4568-a701-a8dda9c93e9a",
   "modelId": 886744,
-  "lastRefresh": "2026-11-14T05:03:47.990000+00:00",
-  "extractedAt": "2026-11-14T05:11:40.252630+00:00",
+  "lastRefresh": "2026-11-26T05:03:35.780000+00:00",
+  "extractedAt": "2026-11-26T05:13:50.074507+00:00",
   "scope": "RJ",
-  "rowCountCountry": 2595,
+  "rowCountCountry": 2594,
   "columns": [
     "dEndereço.UF",
     "dEndereço.Municipio",
